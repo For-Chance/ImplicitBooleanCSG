@@ -1,0 +1,9 @@
+﻿{
+  "name": "implicit-boolean-csg",
+  "version": "1.0.0",
+  "description": "Implementation and Visualization of Implicit Boolean CSG Operations",
+  "dependencies": [
+    "glew",
+    "glfw3"
+  ]
+}
