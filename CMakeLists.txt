@@ -27,7 +27,7 @@ endif()
 
 # Source and header files
 set(SOURCES
-    src/main.cpp
+    main.cpp
     src/Renderer.cpp
 )
 

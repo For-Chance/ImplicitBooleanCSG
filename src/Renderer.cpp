@@ -1,7 +1,4 @@
-﻿#include "../include/Renderer.h"
-#include <iostream>
-#include <string>
-#include <fstream>
+﻿#include "Renderer.h"
 
 // Add a function to get the correct shader directory path
 std::string ImplicitRenderer::getShaderPath(const std::string& shaderFile) {
@@ -12,9 +9,7 @@ std::string ImplicitRenderer::getShaderPath(const std::string& shaderFile) {
         // Relative to executable directory
         "shaders/" + shaderFile,
         // One level up (if running from build/bin/Debug)
-        "../../../shaders/" + shaderFile,
-        // Absolute path based on the project structure
-        "e:/毕业论文/ImplicitBooleanCSG/shaders/" + shaderFile
+        "../../../shaders/" + shaderFile
     };
 
     for (const auto& path : possiblePaths) {
@@ -80,7 +75,7 @@ std::string ImplicitRenderer::loadShaderFile(const std::string& filePath) {
     return shaderCode;
 }
 
-bool ImplicitRenderer::initialize() {
+bool ImpliciclangtRenderer::initialize() {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return false;
@@ -153,13 +148,11 @@ bool ImplicitRenderer::setupShaders() {
         sceneSpecificCode = loadShaderFile(getShaderPath("scene_custom.frag"));
     }
 
-    // 编译顶点着色器
     const char* vertexSource = vertexShaderCode.c_str();
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexSource, nullptr);
     glCompileShader(vertexShader);
 
-    // 检查顶点着色器编译错误
     int success;
     char infoLog[512];
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
@@ -169,16 +162,13 @@ bool ImplicitRenderer::setupShaders() {
         return false;
     }
 
-    // 将片段着色器与通用SDF代码和场景特定代码组合
     std::string fullFragmentCode = fragmentShaderCode + "\n" + commonSDFCode + "\n" + sceneSpecificCode;
     const char* fragmentSource = fullFragmentCode.c_str();
 
-    // 编译片段着色器
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentSource, nullptr);
     glCompileShader(fragmentShader);
 
-    // 检查片段着色器编译错误
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(fragmentShader, 512, nullptr, infoLog);
@@ -186,13 +176,11 @@ bool ImplicitRenderer::setupShaders() {
         return false;
     }
 
-    // 链接着色器程序
     programID = glCreateProgram();
     glAttachShader(programID, vertexShader);
     glAttachShader(programID, fragmentShader);
     glLinkProgram(programID);
 
-    // 检查链接错误
     glGetProgramiv(programID, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(programID, 512, nullptr, infoLog);

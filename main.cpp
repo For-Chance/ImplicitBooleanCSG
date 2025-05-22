@@ -1,5 +1,5 @@
-﻿#include "../include/ImplicitSurfaces.h"
-#include "../include/Renderer.h"
+﻿#include "ImplicitSurfaces.h"
+#include "Renderer.h"
 #include <iostream>
 #include <memory>
 #include <string>
