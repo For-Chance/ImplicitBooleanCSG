@@ -13,6 +13,10 @@ ImplicitRenderer* g_renderer = nullptr;
 
 // Key callback function for scene switching
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    // 使用(void)参数名的方式来标记未使用的参数，消除编译器警告
+    (void)scancode; // 标记scancode参数为有意未使用
+    (void)mods;     // 标记mods参数为有意未使用
+
     if (action == GLFW_PRESS && g_renderer) {
         int sceneIndex = -1;
 
@@ -83,12 +87,12 @@ std::shared_ptr<ImplicitSurface> createCustomScene() {
     // Create a complex CSG scene showcasing various boolean operations
 
     // Create basic shapes
-    auto sphere1 = std::make_shared<Sphere>(Vec3(-0.8, 0.3, 0), 1.0);
-    auto sphere2 = std::make_shared<Sphere>(Vec3(0.8, -0.2, 0), 0.8);
-    auto box = std::make_shared<Box>(Vec3(0, 0, 0), Vec3(0.6, 0.6, 2.0));
+    auto sphere1 = std::make_shared<Sphere>(Vec3<double>(-0.8, 0.3, 0), 1.0);
+    auto sphere2 = std::make_shared<Sphere>(Vec3<double>(0.8, -0.2, 0), 0.8);
+    auto box = std::make_shared<Box>(Vec3<double>(0, 0, 0), Vec3<double>(0.6, 0.6, 2.0));
     auto cylinder = std::make_shared<Cylinder>(
-        Vec3(0, 0, -1.5),
-        Vec3(0, 0, 1.5),
+        Vec3<double>(0, 0, -1.5),
+        Vec3<double>(0, 0, 1.5),
         0.4
     );
 
@@ -123,10 +127,10 @@ int main() {
     glfwSetKeyCallback(renderer.getWindow(), keyCallback);
 
     // Set camera
-    renderer.setCamera(Vec3(0, 0, 5), Vec3(0, 0, 0), Vec3(0, 1, 0), 45.0f);
+    renderer.setCamera(Vec3<float>(0, 0, 5), Vec3<float>(0, 0, 0), Vec3<float>(0, 1, 0), 45.0f);
 
     // Set lighting
-    renderer.setLight(Vec3(4, 4, 4), Vec3(1, 1, 1), 0.2f);
+    renderer.setLight(Vec3<float>(4, 4, 4), Vec3<float>(1, 1, 1), 0.2f);
 
     // Set ray marching parameters
     renderer.setRaymarchingParams(100, 50.0f, 0.001f);

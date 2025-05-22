@@ -1,140 +1,41 @@
 ﻿#include "../include/Renderer.h"
 #include <iostream>
 #include <string>
+#include <fstream>
 
-// Ray marching shader code
-const char* vertexShaderSource = R"(
-#version 330 core
-layout(location = 0) in vec2 position;
-out vec2 texCoord;
+// Add a function to get the correct shader directory path
+std::string ImplicitRenderer::getShaderPath(const std::string& shaderFile) {
+    // Try multiple possible paths to find the shader files
+    std::vector<std::string> possiblePaths = {
+        // Current directory
+        shaderFile,
+        // Relative to executable directory
+        "shaders/" + shaderFile,
+        // One level up (if running from build/bin/Debug)
+        "../../../shaders/" + shaderFile,
+        // Absolute path based on the project structure
+        "e:/毕业论文/ImplicitBooleanCSG/shaders/" + shaderFile
+    };
 
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-    texCoord = (position + vec2(1.0)) / 2.0;
-}
-)";
-
-const char* fragmentShaderSource = R"(
-#version 330 core
-in vec2 texCoord;
-out vec4 fragColor;
-
-uniform vec3 cameraPosition;
-uniform vec3 cameraTarget;
-uniform vec3 cameraUp;
-uniform float fieldOfView;
-uniform vec2 resolution;
-
-uniform vec3 lightPosition;
-uniform vec3 lightColor;
-uniform float ambientStrength;
-
-uniform int maxSteps;
-uniform float maxDistance;
-uniform float epsilon;
-
-// Implicit scene function - will be replaced with specific scene at runtime
-float sceneSDF(vec3 p);
-vec3 sceneNormal(vec3 p);
-
-// Calculate ray direction
-vec3 getRayDir(vec2 uv, vec3 camPos, vec3 camTarget, vec3 camUp, float fov) {
-    vec3 forward = normalize(camTarget - camPos);
-    vec3 right = normalize(cross(forward, camUp));
-    vec3 up = cross(right, forward);
-
-    float aspect = resolution.x / resolution.y;
-    float tanFov = tan(radians(fov) / 2.0);
-
-    vec3 rayDir = normalize(forward +
-                           (2.0 * uv.x - 1.0) * tanFov * aspect * right +
-                           (2.0 * uv.y - 1.0) * tanFov * up);
-
-    return rayDir;
-}
-
-// Ray marching algorithm
-float rayMarch(vec3 ro, vec3 rd, out int steps) {
-    float depth = 0.0;
-    steps = 0;
-
-    for(int i = 0; i < maxSteps; i++) {
-        vec3 p = ro + depth * rd;
-        float dist = sceneSDF(p);
-        if(dist < epsilon) {
-            steps = i;
-            return depth;
+    for (const auto& path : possiblePaths) {
+        // Check if file exists by trying to open it
+        std::ifstream f(path.c_str());
+        if (f.good()) {
+            f.close();
+            return path;
         }
-
-        depth += dist;
-        if(depth >= maxDistance) {
-            steps = maxSteps;
-            return maxDistance;
-        }
-
-        steps = i;
     }
 
-    return maxDistance;
+    // If none of the paths exist, return the original path and log a warning
+    std::cerr << "Warning: Could not find shader file in any expected location: " << shaderFile << std::endl;
+    return shaderFile;
 }
-
-// Lighting calculation
-vec3 calculateLighting(vec3 p, vec3 n, vec3 viewDir) {
-    // Ambient light
-    vec3 ambient = ambientStrength * lightColor;
-
-    // Diffuse light
-    vec3 lightDir = normalize(lightPosition - p);
-    float diff = max(dot(n, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
-
-    // Specular reflection
-    vec3 reflectDir = reflect(-lightDir, n);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-    vec3 specular = 0.5 * spec * lightColor;
-
-    // Shadow
-    float shadowDist = 0.1; // Offset to avoid self-shadowing
-    vec3 shadowPos = p + n * shadowDist;
-    vec3 shadowDir = normalize(lightPosition - shadowPos);
-    int shadowSteps;
-    float shadowDist2 = rayMarch(shadowPos, shadowDir, shadowSteps);
-    float shadow = (shadowDist2 < length(lightPosition - shadowPos)) ? 0.5 : 1.0;
-
-    return ambient + (diffuse + specular) * shadow;
-}
-
-void main() {
-    vec2 uv = texCoord;
-    vec3 ro = cameraPosition;
-    vec3 rd = getRayDir(uv, cameraPosition, cameraTarget, cameraUp, fieldOfView);
-
-    int steps;
-    float dist = rayMarch(ro, rd, steps);
-
-    if(dist < maxDistance) {
-        vec3 p = ro + rd * dist;
-        vec3 n = sceneNormal(p);
-        vec3 color = calculateLighting(p, n, -rd);
-
-        // Add details based on step count
-        float depthFactor = 1.0 - float(steps) / float(maxSteps);
-        color *= mix(0.5, 1.0, depthFactor); // Darken distant objects
-
-        fragColor = vec4(color, 1.0);
-    } else {
-        // Gradient background
-        vec3 backgroundColor = mix(vec3(0.1, 0.1, 0.2), vec3(0.2, 0.3, 0.4), uv.y);
-        fragColor = vec4(backgroundColor, 1.0);
-    }
-}
-)";
 
 ImplicitRenderer::ImplicitRenderer(int width, int height)
     : width(width), height(height), window(nullptr), programID(0),
       vao(0), vbo(0), framebufferTexture(0), scene(nullptr),
-      cameraPosition(0, 0, 5), cameraTarget(0, 0, 0), cameraUp(0, 1, 0),
-      fieldOfView(45.0f), lightPosition(3, 5, 5), lightColor(1, 1, 1),
+      cameraPosition(0.0f, 0.0f, 5.0f), cameraTarget(0.0f, 0.0f, 0.0f), cameraUp(0.0f, 1.0f, 0.0f),
+      fieldOfView(45.0f), lightPosition(3.0f, 5.0f, 5.0f), lightColor(1.0f, 1.0f, 1.0f),
       ambientStrength(0.1f), maxSteps(100), maxDistance(100.0f), epsilon(0.001f)
 {
 }
@@ -147,6 +48,36 @@ ImplicitRenderer::~ImplicitRenderer() {
 
     if (window) glfwDestroyWindow(window);
     glfwTerminate();
+}
+
+// Helper function to load shader from file
+std::string ImplicitRenderer::loadShaderFile(const std::string& filePath) {
+    std::string shaderCode;
+    std::ifstream shaderFile;
+
+    // Ensure ifstream objects can throw exceptions
+    shaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
+    try {
+        // Open files
+        shaderFile.open(filePath);
+        std::stringstream shaderStream;
+
+        // Read file's buffer contents into streams
+        shaderStream << shaderFile.rdbuf();
+
+        // Close file handlers
+        shaderFile.close();
+
+        // Convert stream into string
+        shaderCode = shaderStream.str();
+    }
+    catch (std::ifstream::failure& e) {
+        std::cerr << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << filePath << std::endl;
+        std::cerr << e.what() << std::endl;
+    }
+
+    return shaderCode;
 }
 
 bool ImplicitRenderer::initialize() {
@@ -183,12 +114,52 @@ bool ImplicitRenderer::initialize() {
 }
 
 bool ImplicitRenderer::setupShaders() {
-    // Compile vertex shader
+    // Load shader source code with the correct path finder
+    std::string vertexShaderCode = loadShaderFile(getShaderPath("vertex.vert"));
+    std::string fragmentShaderCode = loadShaderFile(getShaderPath("fragment.frag"));
+    std::string commonSDFCode = loadShaderFile(getShaderPath("common_sdf.glsl"));
+
+    // Get scene-specific code based on scene type
+    std::string sceneSpecificCode;
+
+    // If no scene is set, use default empty scene
+    if (!scene) {
+        sceneSpecificCode = "float sceneSDF(vec3 p) { return 1000.0; }"; // Default empty scene
+    }
+    else if (dynamic_cast<Sphere*>(scene.get())) {
+        sceneSpecificCode = loadShaderFile(getShaderPath("scene_sphere.frag"));
+    }
+    else if (dynamic_cast<UnionOp*>(scene.get())) {
+        sceneSpecificCode = loadShaderFile(getShaderPath("scene_union.frag"));
+    }
+    else if (dynamic_cast<IntersectionOp*>(scene.get())) {
+        sceneSpecificCode = loadShaderFile(getShaderPath("scene_intersection.frag"));
+    }
+    else if (dynamic_cast<DifferenceOp*>(scene.get())) {
+        DifferenceOp* diffOp = dynamic_cast<DifferenceOp*>(scene.get());
+        auto spherePtr = dynamic_cast<Sphere*>(diffOp->getLeft().get());
+        auto boxPtr = dynamic_cast<Box*>(diffOp->getRight().get());
+
+        if (spherePtr && boxPtr) {
+            // Standard difference operation (sphere - box)
+            sceneSpecificCode = loadShaderFile(getShaderPath("scene_difference.frag"));
+        } else {
+            // Complex difference operation (possibly union of shapes - box)
+            sceneSpecificCode = loadShaderFile(getShaderPath("scene_complex.frag"));
+        }
+    }
+    else {
+        // Custom scene
+        sceneSpecificCode = loadShaderFile(getShaderPath("scene_custom.frag"));
+    }
+
+    // 编译顶点着色器
+    const char* vertexSource = vertexShaderCode.c_str();
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+    glShaderSource(vertexShader, 1, &vertexSource, nullptr);
     glCompileShader(vertexShader);
 
-    // Check vertex shader compilation errors
+    // 检查顶点着色器编译错误
     int success;
     char infoLog[512];
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
@@ -198,20 +169,16 @@ bool ImplicitRenderer::setupShaders() {
         return false;
     }
 
-    // Convert implicit scene function to GLSL
-    std::string sceneSDFCode = generateSceneSDFCode();
-    const char* sceneSDFSource = sceneSDFCode.c_str();
+    // 将片段着色器与通用SDF代码和场景特定代码组合
+    std::string fullFragmentCode = fragmentShaderCode + "\n" + commonSDFCode + "\n" + sceneSpecificCode;
+    const char* fragmentSource = fullFragmentCode.c_str();
 
-    // Combine fragment shader source code
-    std::string fullFragmentShaderSource = std::string(fragmentShaderSource) + "\n" + sceneSDFCode;
-    const char* fullFragmentSource = fullFragmentShaderSource.c_str();
-
-    // Compile fragment shader
+    // 编译片段着色器
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fullFragmentSource, nullptr);
+    glShaderSource(fragmentShader, 1, &fragmentSource, nullptr);
     glCompileShader(fragmentShader);
 
-    // Check fragment shader compilation errors
+    // 检查片段着色器编译错误
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(fragmentShader, 512, nullptr, infoLog);
@@ -219,13 +186,13 @@ bool ImplicitRenderer::setupShaders() {
         return false;
     }
 
-    // Link shader program
+    // 链接着色器程序
     programID = glCreateProgram();
     glAttachShader(programID, vertexShader);
     glAttachShader(programID, fragmentShader);
     glLinkProgram(programID);
 
-    // Check linking errors
+    // 检查链接错误
     glGetProgramiv(programID, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(programID, 512, nullptr, infoLog);
@@ -266,135 +233,10 @@ bool ImplicitRenderer::setupBuffers() {
     return true;
 }
 
-// Convert implicit surface to GLSL code
+// This function can be simplified or removed since we're now loading shader code from files
 std::string ImplicitRenderer::generateSceneSDFCode() {
-    // Common function definitions (basic SDF functions needed for all scenes)
-    std::string commonCode = R"(
-// Sphere distance function
-float sphereSDF(vec3 p, vec3 center, float radius) {
-    return length(p - center) - radius;
-}
-
-// Box distance function
-float boxSDF(vec3 p, vec3 center, vec3 dimensions) {
-    vec3 d = abs(p - center) - dimensions;
-    return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0);
-}
-
-// Cylinder distance function
-float cylinderSDF(vec3 p, vec3 start, vec3 end, float radius) {
-    vec3 ba = end - start;
-    vec3 pa = p - start;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    return length(pa - h * ba) - radius;
-}
-
-// CSG boolean operations
-float unionOp(float d1, float d2) { return min(d1, d2); }
-float intersectionOp(float d1, float d2) { return max(d1, d2); }
-float differenceOp(float d1, float d2) { return max(d1, -d2); }
-
-// Smooth boolean operations
-float smoothUnionOp(float d1, float d2, float k) {
-    float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0);
-    return mix(d2, d1, h) - k * h * (1.0 - h);
-}
-
-float smoothIntersectionOp(float d1, float d2, float k) {
-    float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
-    return mix(d2, d1, h) + k * h * (1.0 - h);
-}
-
-float smoothDifferenceOp(float d1, float d2, float k) {
-    float h = clamp(0.5 - 0.5 * (d2 + d1) / k, 0.0, 1.0);
-    return mix(d1, -d2, h) + k * h * (1.0 - h);
-}
-)";
-
-    // Default scene code (for empty scene)
-    std::string sceneCode = R"(
-// Main scene function - Empty scene
-float sceneSDF(vec3 p) {
-    return 1000.0; // Empty scene, large distance value
-}
-)";
-
-    // If scene is not empty, generate corresponding SDF code based on scene type
-    if (scene) {
-        // Check scene type and generate corresponding code
-        if (dynamic_cast<Sphere*>(scene.get())) {
-            // Single sphere scene
-            Sphere* sphere = dynamic_cast<Sphere*>(scene.get());
-            sceneCode = "// Main scene function - Sphere\nfloat sceneSDF(vec3 p) {\n";
-            sceneCode += "    return sphereSDF(p, vec3(0.0, 0.0, 0.0), 1.0);\n";
-            sceneCode += "}\n";
-        }
-        else if (dynamic_cast<UnionOp*>(scene.get())) {
-            // Union operation scene
-            sceneCode = "// Main scene function - CSG Union\nfloat sceneSDF(vec3 p) {\n";
-            sceneCode += "    float sphere1 = sphereSDF(p, vec3(-0.5, 0.0, 0.0), 1.0);\n";
-            sceneCode += "    float sphere2 = sphereSDF(p, vec3(0.5, 0.0, 0.0), 1.0);\n";
-            sceneCode += "    return unionOp(sphere1, sphere2);\n";
-            sceneCode += "}\n";
-        }
-        else if (dynamic_cast<IntersectionOp*>(scene.get())) {
-            // Intersection operation scene
-            sceneCode = "// Main scene function - CSG Intersection\nfloat sceneSDF(vec3 p) {\n";
-            sceneCode += "    float sphere = sphereSDF(p, vec3(0.0, 0.0, 0.0), 1.0);\n";
-            sceneCode += "    float box = boxSDF(p, vec3(0.0, 0.0, 0.0), vec3(0.8, 0.8, 0.8));\n";
-            sceneCode += "    return intersectionOp(sphere, box);\n";
-            sceneCode += "}\n";
-        }
-        else if (dynamic_cast<DifferenceOp*>(scene.get())) {
-            // Check if it's a standard difference operation scene (single sphere minus box)
-            DifferenceOp* diffOp = dynamic_cast<DifferenceOp*>(scene.get());
-            auto spherePtr = dynamic_cast<Sphere*>(diffOp->getLeft().get());
-            auto boxPtr = dynamic_cast<Box*>(diffOp->getRight().get());
-
-            if (spherePtr && boxPtr) {
-                // Difference operation scene (sphere minus box)
-                sceneCode = "// Main scene function - CSG Difference\nfloat sceneSDF(vec3 p) {\n";
-                sceneCode += "    float sphere = sphereSDF(p, vec3(0.0, 0.0, 0.0), 1.0);\n";
-                sceneCode += "    float box = boxSDF(p, vec3(0.5, 0.0, 0.0), vec3(0.8, 0.8, 0.8));\n";
-                sceneCode += "    return differenceOp(sphere, box);\n";
-                sceneCode += "}\n";
-            } else {
-                // Complex CSG scene (union of two spheres minus box)
-                sceneCode = "// Main scene function - Complex CSG Scene\nfloat sceneSDF(vec3 p) {\n";
-                sceneCode += "    float sphere1 = sphereSDF(p, vec3(-1.0, 0.0, 0.0), 1.2);\n";
-                sceneCode += "    float sphere2 = sphereSDF(p, vec3(1.0, 0.0, 0.0), 1.2);\n";
-                sceneCode += "    float box = boxSDF(p, vec3(0.0, 0.0, 0.0), vec3(0.8, 0.8, 0.8));\n";
-                sceneCode += "    float spheres = unionOp(sphere1, sphere2);\n";
-                sceneCode += "    return differenceOp(spheres, box);\n";
-                sceneCode += "}\n";
-            }
-        } else {
-            // Custom scene or other type of scene
-            sceneCode = "// Main scene function - Custom Scene\nfloat sceneSDF(vec3 p) {\n";
-            sceneCode += "    float sphere1 = sphereSDF(p, vec3(-0.8, 0.3, 0.0), 1.0);\n";
-            sceneCode += "    float sphere2 = sphereSDF(p, vec3(0.8, -0.2, 0.0), 0.8);\n";
-            sceneCode += "    float box = boxSDF(p, vec3(0.0, 0.0, 0.0), vec3(0.6, 0.6, 2.0));\n";
-            sceneCode += "    float cylinder = cylinderSDF(p, vec3(0.0, 0.0, -1.5), vec3(0.0, 0.0, 1.5), 0.4);\n";
-            sceneCode += "    float unionSpheres = smoothUnionOp(sphere1, sphere2, 0.2);\n";
-            sceneCode += "    float diffWithBox = smoothDifferenceOp(unionSpheres, box, 0.1);\n";
-            sceneCode += "    return smoothIntersectionOp(diffWithBox, cylinder, 0.1);\n";
-            sceneCode += "}\n";
-        }
-    }
-
-    // Add normal calculation function
-    std::string normalCode = R"(
-vec3 sceneNormal(vec3 p) {
-    const float h = 0.0001;
-    float dx = sceneSDF(p + vec3(h, 0, 0)) - sceneSDF(p - vec3(h, 0, 0));
-    float dy = sceneSDF(p + vec3(0, h, 0)) - sceneSDF(p - vec3(0, h, 0));
-    float dz = sceneSDF(p + vec3(0, 0, h)) - sceneSDF(p - vec3(0, 0, h));
-    return normalize(vec3(dx, dy, dz));
-}
-)";
-
-    // Combine all code
-    return commonCode + sceneCode + normalCode;
+    // Return empty string since we're now loading shader code from files
+    return "";
 }
 
 void ImplicitRenderer::setScene(std::shared_ptr<ImplicitSurface> newScene) {
@@ -406,14 +248,14 @@ void ImplicitRenderer::setScene(std::shared_ptr<ImplicitSurface> newScene) {
     render();
 }
 
-void ImplicitRenderer::setCamera(const Vec3& position, const Vec3& target, const Vec3& up, float fov) {
+void ImplicitRenderer::setCamera(const Vec3<float>& position, const Vec3<float>& target, const Vec3<float>& up, float fov) {
     cameraPosition = position;
     cameraTarget = target;
     cameraUp = up;
     fieldOfView = fov;
 }
 
-void ImplicitRenderer::setLight(const Vec3& position, const Vec3& color, float ambient) {
+void ImplicitRenderer::setLight(const Vec3<float>& position, const Vec3<float>& color, float ambient) {
     lightPosition = position;
     lightColor = color;
     ambientStrength = ambient;
@@ -430,20 +272,30 @@ void ImplicitRenderer::render() {
 
     glUseProgram(programID);
 
-    // Set uniform variables
+    // Set uniform variables without explicit casts since we're using float types
     glUniform3f(glGetUniformLocation(programID, "cameraPosition"),
-                cameraPosition.x, cameraPosition.y, cameraPosition.z);
+                cameraPosition.x,
+                cameraPosition.y,
+                cameraPosition.z);
     glUniform3f(glGetUniformLocation(programID, "cameraTarget"),
-                cameraTarget.x, cameraTarget.y, cameraTarget.z);
+                cameraTarget.x,
+                cameraTarget.y,
+                cameraTarget.z);
     glUniform3f(glGetUniformLocation(programID, "cameraUp"),
-                cameraUp.x, cameraUp.y, cameraUp.z);
+                cameraUp.x,
+                cameraUp.y,
+                cameraUp.z);
     glUniform1f(glGetUniformLocation(programID, "fieldOfView"), fieldOfView);
-    glUniform2f(glGetUniformLocation(programID, "resolution"), (float)width, (float)height);
+    glUniform2f(glGetUniformLocation(programID, "resolution"), width, height);
 
     glUniform3f(glGetUniformLocation(programID, "lightPosition"),
-                lightPosition.x, lightPosition.y, lightPosition.z);
+                lightPosition.x,
+                lightPosition.y,
+                lightPosition.z);
     glUniform3f(glGetUniformLocation(programID, "lightColor"),
-                lightColor.x, lightColor.y, lightColor.z);
+                lightColor.x,
+                lightColor.y,
+                lightColor.z);
     glUniform1f(glGetUniformLocation(programID, "ambientStrength"), ambientStrength);
 
     glUniform1i(glGetUniformLocation(programID, "maxSteps"), maxSteps);
@@ -474,16 +326,18 @@ void ImplicitRenderer::run() {
         glfwPollEvents();
 
         // Camera rotation logic
-        angle += 0.5f * (float)deltaTime; // Control rotation speed
+        angle += 0.5f * static_cast<float>(deltaTime); // Control rotation speed
         float radius = 5.0f;
         cameraPosition.x = sin(angle) * radius;
         cameraPosition.z = cos(angle) * radius;
-        cameraTarget = Vec3(0, 0, 0);
+        cameraTarget = Vec3<float>(0.0f, 0.0f, 0.0f);
 
         // Update camera position uniform variable
         glUseProgram(programID);
         glUniform3f(glGetUniformLocation(programID, "cameraPosition"),
-                   cameraPosition.x, cameraPosition.y, cameraPosition.z);
+                   cameraPosition.x,
+                   cameraPosition.y,
+                   cameraPosition.z);
 
         // Render scene
         render();
@@ -492,33 +346,33 @@ void ImplicitRenderer::run() {
 
 // Predefined scene creation functions
 std::shared_ptr<ImplicitSurface> ImplicitRenderer::createSphereScene() {
-    return std::make_shared<Sphere>(Vec3(0, 0, 0), 1.0);
+    return std::make_shared<Sphere>(Vec3<double>(0.0, 0.0, 0.0), 1.0);
 }
 
 std::shared_ptr<ImplicitSurface> ImplicitRenderer::createCSGUnionScene() {
-    auto sphere1 = std::make_shared<Sphere>(Vec3(-0.5, 0, 0), 1.0);
-    auto sphere2 = std::make_shared<Sphere>(Vec3(0.5, 0, 0), 1.0);
+    auto sphere1 = std::make_shared<Sphere>(Vec3<double>(-0.5, 0.0, 0.0), 1.0);
+    auto sphere2 = std::make_shared<Sphere>(Vec3<double>(0.5, 0.0, 0.0), 1.0);
     return std::make_shared<UnionOp>(sphere1, sphere2);
 }
 
 std::shared_ptr<ImplicitSurface> ImplicitRenderer::createCSGIntersectionScene() {
-    auto sphere = std::make_shared<Sphere>(Vec3(0, 0, 0), 1.0);
-    auto box = std::make_shared<Box>(Vec3(0, 0, 0), Vec3(0.8, 0.8, 0.8));
+    auto sphere = std::make_shared<Sphere>(Vec3<double>(0.0, 0.0, 0.0), 1.0);
+    auto box = std::make_shared<Box>(Vec3<double>(0.0, 0.0, 0.0), Vec3<double>(0.8, 0.8, 0.8));
     return std::make_shared<IntersectionOp>(sphere, box);
 }
 
 std::shared_ptr<ImplicitSurface> ImplicitRenderer::createCSGDifferenceScene() {
-    auto sphere = std::make_shared<Sphere>(Vec3(0, 0, 0), 1.0);
-    auto box = std::make_shared<Box>(Vec3(0.5, 0, 0), Vec3(0.8, 0.8, 0.8));
+    auto sphere = std::make_shared<Sphere>(Vec3<double>(0.0, 0.0, 0.0), 1.0);
+    auto box = std::make_shared<Box>(Vec3<double>(0.5, 0.0, 0.0), Vec3<double>(0.8, 0.8, 0.8));
     return std::make_shared<DifferenceOp>(sphere, box);
 }
 
 std::shared_ptr<ImplicitSurface> ImplicitRenderer::createComplexCSGScene() {
-    auto sphere1 = std::make_shared<Sphere>(Vec3(-1.0, 0, 0), 1.2);
-    auto sphere2 = std::make_shared<Sphere>(Vec3(1.0, 0, 0), 1.2);
+    auto sphere1 = std::make_shared<Sphere>(Vec3<double>(-1.0, 0.0, 0.0), 1.2);
+    auto sphere2 = std::make_shared<Sphere>(Vec3<double>(1.0, 0.0, 0.0), 1.2);
     auto sphereUnion = std::make_shared<UnionOp>(sphere1, sphere2);
 
-    auto box = std::make_shared<Box>(Vec3(0, 0, 0), Vec3(0.8, 0.8, 0.8));
+    auto box = std::make_shared<Box>(Vec3<double>(0.0, 0.0, 0.0), Vec3<double>(0.8, 0.8, 0.8));
 
     return std::make_shared<DifferenceOp>(sphereUnion, box);
 }

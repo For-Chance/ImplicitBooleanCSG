@@ -6,43 +6,48 @@
 #include <functional>
 #include <cmath>
 
-// 3D vector class
+// 3D vector class with templated type
+template<typename T = double>
 class Vec3 {
 public:
-    double x, y, z;
+    T x, y, z;
 
     Vec3() : x(0), y(0), z(0) {}
-    Vec3(double x, double y, double z) : x(x), y(y), z(z) {}
+    Vec3(T x, T y, T z) : x(x), y(y), z(z) {}
+
+    // Add template conversion constructor
+    template<typename U>
+    Vec3(const Vec3<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)) {}
 
     // Vector length
-    double length() const {
+    T length() const {
         return std::sqrt(x*x + y*y + z*z);
     }
 
     // Vector normalization
-    Vec3 normalize() const {
-        double len = length();
+    Vec3<T> normalize() const {
+        T len = length();
         if (len == 0) return *this;
-        return Vec3(x / len, y / len, z / len);
+        return Vec3<T>(x / len, y / len, z / len);
     }
 
     // Vector addition
-    Vec3 operator+(const Vec3& other) const {
-        return Vec3(x + other.x, y + other.y, z + other.z);
+    Vec3<T> operator+(const Vec3<T>& other) const {
+        return Vec3<T>(x + other.x, y + other.y, z + other.z);
     }
 
     // Vector subtraction
-    Vec3 operator-(const Vec3& other) const {
-        return Vec3(x - other.x, y - other.y, z - other.z);
+    Vec3<T> operator-(const Vec3<T>& other) const {
+        return Vec3<T>(x - other.x, y - other.y, z - other.z);
     }
 
     // Vector scalar multiplication
-    Vec3 operator*(double scalar) const {
-        return Vec3(x * scalar, y * scalar, z * scalar);
+    Vec3<T> operator*(T scalar) const {
+        return Vec3<T>(x * scalar, y * scalar, z * scalar);
     }
 
     // Dot product
-    double dot(const Vec3& other) const {
+    T dot(const Vec3<T>& other) const {
         return x * other.x + y * other.y + z * other.z;
     }
 };
@@ -54,38 +59,38 @@ public:
 
     // Evaluate the implicit function value at point (x,y,z)
     // Negative value indicates inside the object, 0 indicates on the surface, positive value indicates outside the object
-    virtual double evaluate(const Vec3& point) const = 0;
+    virtual double evaluate(const Vec3<double>& point) const = 0;
 
     // Calculate the normal (gradient) at a given point
-    virtual Vec3 gradient(const Vec3& point) const {
+    virtual Vec3<double> gradient(const Vec3<double>& point) const {
         // Use numerical differentiation to calculate gradient
         const double h = 0.0001; // Small perturbation value
 
-        double dx = evaluate(Vec3(point.x + h, point.y, point.z)) -
-                    evaluate(Vec3(point.x - h, point.y, point.z));
+        double dx = evaluate(Vec3<double>(point.x + h, point.y, point.z)) -
+                    evaluate(Vec3<double>(point.x - h, point.y, point.z));
 
-        double dy = evaluate(Vec3(point.x, point.y + h, point.z)) -
-                    evaluate(Vec3(point.x, point.y - h, point.z));
+        double dy = evaluate(Vec3<double>(point.x, point.y + h, point.z)) -
+                    evaluate(Vec3<double>(point.x, point.y - h, point.z));
 
-        double dz = evaluate(Vec3(point.x, point.y, point.z + h)) -
-                    evaluate(Vec3(point.x, point.y, point.z - h));
+        double dz = evaluate(Vec3<double>(point.x, point.y, point.z + h)) -
+                    evaluate(Vec3<double>(point.x, point.y, point.z - h));
 
-        return Vec3(dx, dy, dz).normalize();
+        return Vec3<double>(dx, dy, dz).normalize();
     }
 };
 
 // Sphere implicit surface
 class Sphere : public ImplicitSurface {
 private:
-    Vec3 center;
+    Vec3<double> center;
     double radius;
 
 public:
-    Sphere(const Vec3& center, double radius)
+    Sphere(const Vec3<double>& center, double radius)
         : center(center), radius(radius) {}
 
-    double evaluate(const Vec3& point) const override {
-        Vec3 diff = point - center;
+    double evaluate(const Vec3<double>& point) const override {
+        Vec3<double> diff = point - center;
         return diff.length() - radius;
     }
 };
@@ -93,22 +98,22 @@ public:
 // Box implicit surface (using smooth approximation)
 class Box : public ImplicitSurface {
 private:
-    Vec3 center;
-    Vec3 dimensions; // half-width, half-height, half-depth
+    Vec3<double> center;
+    Vec3<double> dimensions; // half-width, half-height, half-depth
     double smoothing;
 
 public:
-    Box(const Vec3& center, const Vec3& dimensions, double smoothing = 0.1)
+    Box(const Vec3<double>& center, const Vec3<double>& dimensions, double smoothing = 0.1)
         : center(center), dimensions(dimensions), smoothing(smoothing) {}
 
-    double evaluate(const Vec3& point) const override {
-        Vec3 d = Vec3(
+    double evaluate(const Vec3<double>& point) const override {
+        Vec3<double> d = Vec3<double>(
             std::abs(point.x - center.x) - dimensions.x,
             std::abs(point.y - center.y) - dimensions.y,
             std::abs(point.z - center.z) - dimensions.z
         );
 
-        Vec3 dMax = Vec3(std::max(d.x, 0.0), std::max(d.y, 0.0), std::max(d.z, 0.0));
+        Vec3<double> dMax = Vec3<double>(std::max(d.x, 0.0), std::max(d.y, 0.0), std::max(d.z, 0.0));
         return dMax.length() + std::min(std::max(d.x, std::max(d.y, d.z)), 0.0) - smoothing;
     }
 };
@@ -116,14 +121,14 @@ public:
 // Plane implicit surface
 class Plane : public ImplicitSurface {
 private:
-    Vec3 normal;
+    Vec3<double> normal;
     double distance;
 
 public:
-    Plane(const Vec3& normal, double distance)
+    Plane(const Vec3<double>& normal, double distance)
         : normal(normal.normalize()), distance(distance) {}
 
-    double evaluate(const Vec3& point) const override {
+    double evaluate(const Vec3<double>& point) const override {
         return normal.dot(point) + distance;
     }
 };
@@ -131,23 +136,23 @@ public:
 // Cylinder implicit surface
 class Cylinder : public ImplicitSurface {
 private:
-    Vec3 start, end;
+    Vec3<double> start, end;
     double radius;
 
 public:
-    Cylinder(const Vec3& start, const Vec3& end, double radius)
+    Cylinder(const Vec3<double>& start, const Vec3<double>& end, double radius)
         : start(start), end(end), radius(radius) {}
 
-    double evaluate(const Vec3& point) const override {
-        Vec3 axis = end - start;
+    double evaluate(const Vec3<double>& point) const override {
+        Vec3<double> axis = end - start;
         double length = axis.length();
         axis = axis.normalize();
 
-        Vec3 relativePos = point - start;
+        Vec3<double> relativePos = point - start;
         double dot = relativePos.dot(axis);
         dot = std::max(0.0, std::min(length, dot));
 
-        Vec3 closestPoint = start + axis * dot;
+        Vec3<double> closestPoint = start + axis * dot;
         return (point - closestPoint).length() - radius;
     }
 };
@@ -173,7 +178,7 @@ class UnionOp : public BooleanOperation {
 public:
     using BooleanOperation::BooleanOperation;
 
-    double evaluate(const Vec3& point) const override {
+    double evaluate(const Vec3<double>& point) const override {
         double leftVal = left->evaluate(point);
         double rightVal = right->evaluate(point);
         return std::min(leftVal, rightVal);
@@ -185,7 +190,7 @@ class IntersectionOp : public BooleanOperation {
 public:
     using BooleanOperation::BooleanOperation;
 
-    double evaluate(const Vec3& point) const override {
+    double evaluate(const Vec3<double>& point) const override {
         double leftVal = left->evaluate(point);
         double rightVal = right->evaluate(point);
         return std::max(leftVal, rightVal);
@@ -197,7 +202,7 @@ class DifferenceOp : public BooleanOperation {
 public:
     using BooleanOperation::BooleanOperation;
 
-    double evaluate(const Vec3& point) const override {
+    double evaluate(const Vec3<double>& point) const override {
         double leftVal = left->evaluate(point);
         double rightVal = right->evaluate(point);
         return std::max(leftVal, -rightVal);
@@ -216,7 +221,7 @@ public:
                  double smoothFactor = 0.1)
         : BooleanOperation(left, right), k(smoothFactor) {}
 
-    double evaluate(const Vec3& point) const override {
+    double evaluate(const Vec3<double>& point) const override {
         double leftVal = left->evaluate(point);
         double rightVal = right->evaluate(point);
 
@@ -236,7 +241,7 @@ public:
                         double smoothFactor = 0.1)
         : BooleanOperation(left, right), k(smoothFactor) {}
 
-    double evaluate(const Vec3& point) const override {
+    double evaluate(const Vec3<double>& point) const override {
         double leftVal = left->evaluate(point);
         double rightVal = right->evaluate(point);
 
@@ -256,7 +261,7 @@ public:
                       double smoothFactor = 0.1)
         : BooleanOperation(left, right), k(smoothFactor) {}
 
-    double evaluate(const Vec3& point) const override {
+    double evaluate(const Vec3<double>& point) const override {
         double leftVal = left->evaluate(point);
         double rightVal = -right->evaluate(point);
 

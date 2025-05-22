@@ -6,6 +6,8 @@
 #include <string> // Add string header
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <fstream>
+#include <sstream>
 
 // Renderer for implicit surfaces using ray marching algorithm
 class ImplicitRenderer {
@@ -18,15 +20,15 @@ private:
 
     std::shared_ptr<ImplicitSurface> scene;
 
-    // Camera parameters
-    Vec3 cameraPosition;
-    Vec3 cameraTarget;
-    Vec3 cameraUp;
+    // Camera parameters - using float instead of double
+    Vec3<float> cameraPosition;
+    Vec3<float> cameraTarget;
+    Vec3<float> cameraUp;
     float fieldOfView;
 
-    // Light parameters
-    Vec3 lightPosition;
-    Vec3 lightColor;
+    // Light parameters - using float instead of double
+    Vec3<float> lightPosition;
+    Vec3<float> lightColor;
     float ambientStrength;
 
     // Ray marching algorithm parameters
@@ -36,7 +38,9 @@ private:
 
     bool setupShaders();
     bool setupBuffers();
-    std::string generateSceneSDFCode(); // Declaration of generateSceneSDFCode function
+    std::string loadShaderFile(const std::string& filePath); // New helper function
+    std::string getShaderPath(const std::string& shaderFile); // Helper function to find shader paths
+    std::string generateSceneSDFCode();
 
 public:
     ImplicitRenderer(int width = 800, int height = 600);
@@ -44,8 +48,8 @@ public:
 
     bool initialize();
     void setScene(std::shared_ptr<ImplicitSurface> scene);
-    void setCamera(const Vec3& position, const Vec3& target, const Vec3& up, float fov);
-    void setLight(const Vec3& position, const Vec3& color, float ambientStrength);
+    void setCamera(const Vec3<float>& position, const Vec3<float>& target, const Vec3<float>& up, float fov);
+    void setLight(const Vec3<float>& position, const Vec3<float>& color, float ambientStrength);
     void setRaymarchingParams(int maxSteps, float maxDistance, float epsilon);
 
     // Get GLFW window for setting callback functions
