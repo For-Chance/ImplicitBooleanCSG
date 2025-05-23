@@ -28,10 +28,10 @@ std::string ImplicitRenderer::getShaderPath(const std::string& shaderFile) {
 
 ImplicitRenderer::ImplicitRenderer(int width, int height)
     : width(width), height(height), window(nullptr), programID(0),
-      vao(0), vbo(0), framebufferTexture(0), scene(nullptr),
-      cameraPosition(0.0f, 0.0f, 5.0f), cameraTarget(0.0f, 0.0f, 0.0f), cameraUp(0.0f, 1.0f, 0.0f),
-      fieldOfView(45.0f), lightPosition(3.0f, 5.0f, 5.0f), lightColor(1.0f, 1.0f, 1.0f),
-      ambientStrength(0.1f), maxSteps(100), maxDistance(100.0f), epsilon(0.001f)
+    vao(0), vbo(0), framebufferTexture(0), scene(nullptr),
+    cameraPosition(0.0f, 0.0f, 5.0f), cameraTarget(0.0f, 0.0f, 0.0f), cameraUp(0.0f, 1.0f, 0.0f),
+    fieldOfView(45.0f), lightPosition(3.0f, 5.0f, 5.0f), lightColor(1.0f, 1.0f, 1.0f),
+    ambientStrength(0.1f), maxSteps(100), maxDistance(100.0f), epsilon(0.001f)
 {
 }
 
@@ -75,7 +75,7 @@ std::string ImplicitRenderer::loadShaderFile(const std::string& filePath) {
     return shaderCode;
 }
 
-bool ImpliciclangtRenderer::initialize() {
+bool ImplicitRenderer::initialize() {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return false;
@@ -138,7 +138,8 @@ bool ImplicitRenderer::setupShaders() {
         if (spherePtr && boxPtr) {
             // Standard difference operation (sphere - box)
             sceneSpecificCode = loadShaderFile(getShaderPath("scene_difference.frag"));
-        } else {
+        }
+        else {
             // Complex difference operation (possibly union of shapes - box)
             sceneSpecificCode = loadShaderFile(getShaderPath("scene_complex.frag"));
         }
@@ -323,9 +324,9 @@ void ImplicitRenderer::run() {
         // Update camera position uniform variable
         glUseProgram(programID);
         glUniform3f(glGetUniformLocation(programID, "cameraPosition"),
-                   cameraPosition.x,
-                   cameraPosition.y,
-                   cameraPosition.z);
+                    cameraPosition.x,
+                    cameraPosition.y,
+                    cameraPosition.z);
 
         // Render scene
         render();

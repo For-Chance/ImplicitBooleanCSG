@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <fstream>
 #include <sstream>
+#include <iostream>
 
 // Renderer for implicit surfaces using ray marching algorithm
 class ImplicitRenderer {
